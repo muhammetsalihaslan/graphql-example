@@ -1,12 +1,13 @@
 import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
 import { users, posts, comments } from "./data.js";
+import { nanoid } from "nanoid";
 
 const typeDefs = `#graphql
  type User{
     id:ID!
     fullname:String!
-    posts:[Post!]!
+    posts:[Post!]
  }
 
  type Post {
@@ -33,9 +34,43 @@ const typeDefs = `#graphql
     comments:[Comment!]!
     comment(id:ID!):Comment!
  }
+
+ type Mutation{
+  createUser(fullName:String!):User!
+  createPost(title:String!, user_id:ID!):Post!
+  createComment(text:String!):Comment!
+ }
 `;
 
 const resolvers = {
+  Mutation: {
+    createUser: (parent, args) => {
+      const user = {
+        id: nanoid(),
+        fullname: args.fullName,
+      };
+      users.push(user);
+      return user;
+    },
+    createPost: (parent, { title, user_id }) => {
+      const post = {
+        id: nanoid(),
+        title,
+        user_id,
+      };
+      posts.push(post);
+      return post;
+    },
+    createComment: (parent, { text }) => {
+      const comment = {
+        id: nanoid(),
+        text,
+      };
+
+      comments.push(comment);
+      return comment;
+    },
+  },
   Query: {
     //! users
     users: () => users,
