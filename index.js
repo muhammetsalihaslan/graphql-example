@@ -10,6 +10,10 @@ const typeDefs = `#graphql
     posts:[Post!]
  }
 
+ input CreateUserInput {
+  fullName:String!
+ }
+
  type Post {
     id:ID!
     title:String!
@@ -18,12 +22,23 @@ const typeDefs = `#graphql
     comments:[Comment!]!
  }
 
+ input CreatePostInput {
+  title:String!
+  user_id:ID!
+ }
+
  type Comment {
     id:ID!
     text:String!
     post:Post!
     user:User!
 
+ }
+
+ input CreateCommentInput {
+  text:String!, 
+  post_id:ID!, 
+  user_id:ID!
  }
 
  type Query{
@@ -36,35 +51,37 @@ const typeDefs = `#graphql
  }
 
  type Mutation{
-  createUser(fullName:String!):User!
-  createPost(title:String!, user_id:ID!):Post!
-  createComment(text:String!):Comment!
+  createUser(data:CreateUserInput!):User!
+  createPost(data:CreatePostInput!):Post!
+  createComment(data:CreateCommentInput!):Comment!
  }
 `;
 
 const resolvers = {
   Mutation: {
-    createUser: (parent, args) => {
+    createUser: (parent, { data }) => {
       const user = {
         id: nanoid(),
-        fullname: args.fullName,
+        ...data, //  fullname: data.fullName,  bu şekilde yazmanın farklı yolu ...data şeklinde yazmaktır
       };
       users.push(user);
       return user;
     },
-    createPost: (parent, { title, user_id }) => {
+    createPost: (parent, { data }) => {
       const post = {
         id: nanoid(),
-        title,
-        user_id,
+        title: data.title,
+        user_id: data.user_id,
       };
       posts.push(post);
       return post;
     },
-    createComment: (parent, { text }) => {
+    createComment: (parent, { data }) => {
       const comment = {
         id: nanoid(),
-        text,
+        text: data.text,
+        user_id: data.user_id,
+        post_id: data.post_id,
       };
 
       comments.push(comment);
