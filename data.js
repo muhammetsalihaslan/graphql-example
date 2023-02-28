@@ -1,6 +1,6 @@
 export const users = [
-  { id: "1", fullname: "Salih Aslan" },
-  { id: "2", fullname: "Osman Demirci" },
+  { id: "1", fullname: "Salih Aslan", age: 28 },
+  { id: "2", fullname: "Osman Demirci", age: 32 },
 ];
 
 export const posts = [

@@ -7,11 +7,18 @@ const typeDefs = `#graphql
  type User{
     id:ID!
     fullname:String!
+    age:Int!
     posts:[Post!]
  }
 
  input CreateUserInput {
   fullName:String!
+  age:Int!
+ }
+
+ input UpdateUserInput {
+    fullName:String!
+    age:Int!
  }
 
  type Post {
@@ -25,6 +32,11 @@ const typeDefs = `#graphql
  input CreatePostInput {
   title:String!
   user_id:ID!
+ }
+
+ input UpdatePostInput {
+  title:String
+  user_id:ID
  }
 
  type Comment {
@@ -41,6 +53,10 @@ const typeDefs = `#graphql
   user_id:ID!
  }
 
+ input UpdateCommentInput {
+  text:String
+ }
+
  type Query{
     users:[User!]!
     user(id:ID!):User!
@@ -51,14 +67,22 @@ const typeDefs = `#graphql
  }
 
  type Mutation{
-  createUser(data:CreateUserInput!):User!
+  #user
+  createUser(data:CreateUserInput!):User!  
+  updateUser( id:ID!, data:UpdateUserInput! ):User!
+  # Post
   createPost(data:CreatePostInput!):Post!
+  updatePost(id:ID!, data:UpdatePostInput! ):Post!
+
+  #Comment
   createComment(data:CreateCommentInput!):Comment!
+  updateComment(id:ID!, data:UpdateCommentInput! ):Comment!
  }
 `;
 
 const resolvers = {
   Mutation: {
+    //USER
     createUser: (parent, { data }) => {
       const user = {
         id: nanoid(),
@@ -67,6 +91,26 @@ const resolvers = {
       users.push(user);
       return user;
     },
+
+    updateUser: (parent, { id, data }) => {
+      const user_index = users.findIndex((user) => user.id == id);
+
+      if (user_index === -1) {
+        throw new Error("User not found.");
+      }
+
+      // users[user_index].fullname = data.fullName;
+      // users[user_index].age = data.age;
+
+      const updated_user = (users[user_index] = {
+        ...users[user_index],
+        ...data,
+      });
+
+      return updated_user;
+    },
+
+    //POST
     createPost: (parent, { data }) => {
       const post = {
         id: nanoid(),
@@ -76,6 +120,23 @@ const resolvers = {
       posts.push(post);
       return post;
     },
+
+    updatePost: (parent, { id, data }) => {
+      const post_index = posts.findIndex((post) => post.id === id);
+
+      if (post_index === -1) {
+        throw new Error("invalid post");
+      }
+
+      posts[post_index] = {
+        ...posts[post_index],
+        ...data,
+      };
+
+      return posts[post_index];
+    },
+
+    //COMMENT
     createComment: (parent, { data }) => {
       const comment = {
         id: nanoid(),
@@ -86,6 +147,21 @@ const resolvers = {
 
       comments.push(comment);
       return comment;
+    },
+
+    updateComment: (parent, { id, data }) => {
+      const comment_index = comments.findIndex((comment) => comment.id === id);
+
+      if (comment_index === -1) {
+        throw new Error("invalid comment");
+      }
+
+      comments[comment_index] = {
+        ...comments[comment_index],
+        ...data,
+      }; //burada comment içerisinde değişmek isteneni bul daha sobra da data ile verdiğimiz değerleri içine ekle
+
+      return comments[comment_index];
     },
   },
   Query: {
