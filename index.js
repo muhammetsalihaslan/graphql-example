@@ -70,9 +70,11 @@ const typeDefs = `#graphql
   #user
   createUser(data:CreateUserInput!):User!  
   updateUser( id:ID!, data:UpdateUserInput! ):User!
+  deleteUser(id:ID!):User! 
   # Post
   createPost(data:CreatePostInput!):Post!
   updatePost(id:ID!, data:UpdatePostInput! ):Post!
+  deletePost(id:ID!): Post! 
 
   #Comment
   createComment(data:CreateCommentInput!):Comment!
@@ -110,6 +112,18 @@ const resolvers = {
       return updated_user;
     },
 
+    deleteUser: (parent, { id }) => {
+      const delete_index = users.findIndex((user) => user.id === id);
+
+      if (delete_index === -1) {
+        throw new Error("User not found");
+      }
+      const delete_user = users[delete_index];
+      users.splice(delete_index, 1);
+
+      return delete_user;
+    },
+
     //POST
     createPost: (parent, { data }) => {
       const post = {
@@ -134,6 +148,15 @@ const resolvers = {
       };
 
       return posts[post_index];
+    },
+
+    deletePost: (parent, { id }) => {
+      const post_index = posts.findIndex((post) => post.id === id);
+
+      const deleted_post = posts[post_index];
+      posts.splice(post_index, 1);
+
+      return deleted_post;
     },
 
     //COMMENT
