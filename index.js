@@ -1,7 +1,15 @@
 import { ApolloServer } from "@apollo/server";
-import { startStandaloneServer } from "@apollo/server/standalone";
+import { expressMiddleware } from "@apollo/server/express4";
 import { users, posts, comments } from "./data.js";
 import { nanoid } from "nanoid";
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/lib/use/ws";
+import express from "express";
+import { createServer } from "http";
+import bodyParser from "body-parser";
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+import { PubSub } from "graphql-subscriptions";
 
 const typeDefs = `#graphql
  type User{
@@ -85,17 +93,26 @@ const typeDefs = `#graphql
   createComment(data:CreateCommentInput!):Comment!
   updateComment(id:ID!, data:UpdateCommentInput! ):Comment!
  }
+
+ type Subscription{
+   userCreated: User!
+ }
+
+
 `;
+
+const pubSub = new PubSub();
 
 const resolvers = {
   Mutation: {
     //USER
-    createUser: (parent, { data }) => {
+    createUser: (_, { data }, { pubSub }) => {
       const user = {
         id: nanoid(),
         ...data, //  fullname: data.fullName,  bu şekilde yazmanın farklı yolu ...data şeklinde yazmaktır
       };
       users.push(user);
+      pubSub.publish("userCreated", { userCreated: { user } });
       return user;
     },
 
@@ -234,15 +251,49 @@ const resolvers = {
     post: (parent) => posts.find((post) => post.id === parent.post_id),
     user: (parent) => users.find((user) => user.id === parent.user_id),
   },
+  Subscription: {
+    userCreated: {
+      subscribe: () => pubSub.asyncIterator("userCreated"),
+    },
+  },
 };
 
+const schema = makeExecutableSchema({ typeDefs, resolvers });
+const app = express();
+const httpServer = createServer(app);
+
+const wsServer = new WebSocketServer({
+  server: httpServer,
+  path: "/graphql",
+});
+
+const wsServerCleanup = useServer({ schema }, wsServer);
+
 const server = new ApolloServer({
-  typeDefs,
-  resolvers,
+  schema,
+  plugins: [
+    ApolloServerPluginDrainHttpServer({ httpServer }),
+    {
+      async serverWillStart() {
+        return {
+          async drainServer() {
+            await wsServerCleanup.dispose();
+          },
+        };
+      },
+    },
+  ],
 });
 
-const { url } = await startStandaloneServer(server, {
-  listen: { port: 2000 },
-});
+await server.start();
 
-console.log(`🚀  Server ready at: ${url}`);
+app.use("/graphql", bodyParser.json(), expressMiddleware(server));
+
+const port = 2000;
+
+httpServer.listen(port, () => {
+  console.log(`🚀 Query endpoint ready at http://localhost:${port}/graphql`);
+  console.log(
+    `🚀 Subscription endpoint ready at ws://localhost:${port}/graphql`
+  );
+});
