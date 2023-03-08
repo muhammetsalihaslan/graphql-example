@@ -20,12 +20,12 @@ const typeDefs = `#graphql
  }
 
  input CreateUserInput {
-  fullName:String!
+  fullname:String!
   age:Int!
  }
 
  input UpdateUserInput {
-    fullName:String!
+    fullname:String!
     age:Int!
  }
 
@@ -96,6 +96,13 @@ const typeDefs = `#graphql
 
  type Subscription{
    userCreated: User!
+   userUpdated: User!
+   userDeleted: User!
+
+
+   postCreated: Post!
+   postUpdated: Post!
+   postDeleted: Post!
  }
 
 
@@ -103,16 +110,20 @@ const typeDefs = `#graphql
 
 const pubSub = new PubSub();
 
+const mockLongLastingOperation = (user) => {
+  pubSub.publish("userCreated", { userCreated: { user } });
+};
+
 const resolvers = {
   Mutation: {
     //USER
-    createUser: (_, { data }, { pubSub }) => {
+    createUser: (_, { data }) => {
       const user = {
         id: nanoid(),
         ...data, //  fullname: data.fullName,  bu şekilde yazmanın farklı yolu ...data şeklinde yazmaktır
       };
       users.push(user);
-      pubSub.publish("userCreated", { userCreated: { user } });
+      mockLongLastingOperation(user);
       return user;
     },
 
@@ -130,6 +141,7 @@ const resolvers = {
         ...users[user_index],
         ...data,
       });
+      pubSub.publish("userUpdated", { userUpdated: { updated_user } });
 
       return updated_user;
     },
@@ -142,6 +154,7 @@ const resolvers = {
       }
       const delete_user = users[delete_index];
       users.splice(delete_index, 1);
+      pubSub.publish("userDeleted", { userDeleted: { delete_user } });
 
       return delete_user;
     },
@@ -162,6 +175,7 @@ const resolvers = {
         user_id: data.user_id,
       };
       posts.push(post);
+      pubSub.publish("postCreated", { postCreated: { post } });
       return post;
     },
 
@@ -176,7 +190,7 @@ const resolvers = {
         ...posts[post_index],
         ...data,
       };
-
+      pubSub.publish("postUpdated", { postUpdated: posts[post_index] });
       return posts[post_index];
     },
 
@@ -185,7 +199,7 @@ const resolvers = {
 
       const deleted_post = posts[post_index];
       posts.splice(post_index, 1);
-
+      pubSub.publish("postDeleted", { postDeleted: { deleted_post } });
       return deleted_post;
     },
 
@@ -253,7 +267,23 @@ const resolvers = {
   },
   Subscription: {
     userCreated: {
-      subscribe: () => pubSub.asyncIterator("userCreated"),
+      subscribe: () => pubSub.asyncIterator(["userCreated"]),
+    },
+    userUpdated: {
+      subscribe: () => pubSub.asyncIterator(["userUpdated"]),
+    },
+    userDeleted: {
+      subscribe: () => pubSub.asyncIterator(["userDeleted"]),
+    },
+
+    postCreated: {
+      subscribe: () => pubSub.asyncIterator(["postCreated"]),
+    },
+    postUpdated: {
+      subscribe: () => pubSub.asyncIterator(["postUpdated"]),
+    },
+    postDeleted: {
+      subscribe: () => pubSub.asyncIterator(["postDeleted"]),
     },
   },
 };
