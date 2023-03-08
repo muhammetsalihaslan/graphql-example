@@ -103,6 +103,7 @@ const typeDefs = `#graphql
    postCreated: Post!
    postUpdated: Post!
    postDeleted: Post!
+   postCount:Int!
  }
 
 
@@ -176,6 +177,7 @@ const resolvers = {
       };
       posts.push(post);
       pubSub.publish("postCreated", { postCreated: { post } });
+      pubSub.publish("postCount", { postCount: posts.length });
       return post;
     },
 
@@ -284,6 +286,9 @@ const resolvers = {
     },
     postDeleted: {
       subscribe: () => pubSub.asyncIterator(["postDeleted"]),
+    },
+    postCount: {
+      subscribe: () => pubSub.asyncIterator(["postCount"]),
     },
   },
 };
