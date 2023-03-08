@@ -288,7 +288,12 @@ const resolvers = {
       subscribe: () => pubSub.asyncIterator(["postDeleted"]),
     },
     postCount: {
-      subscribe: () => pubSub.asyncIterator(["postCount"]),
+      subscribe: () => {
+        setTimeout(() => {
+          pubSub.publish("postCount", { postCount: posts.length });
+        });
+        return pubSub.asyncIterator(["postCount"]);
+      },
     },
   },
 };
