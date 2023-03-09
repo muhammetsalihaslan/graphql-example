@@ -9,7 +9,7 @@ import { createServer } from "http";
 import bodyParser from "body-parser";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
-import { PubSub } from "graphql-subscriptions";
+import { PubSub, withFilter } from "graphql-subscriptions";
 
 const typeDefs = `#graphql
  type User{
@@ -100,10 +100,12 @@ const typeDefs = `#graphql
    userDeleted: User!
 
 
-   postCreated: Post!
+   postCreated(user_id:ID): Post
    postUpdated: Post!
    postDeleted: Post!
    postCount:Int!
+
+   commentCreated(post_id:ID): Comment!
  }
 
 
@@ -279,7 +281,14 @@ const resolvers = {
     },
 
     postCreated: {
-      subscribe: () => pubSub.asyncIterator(["postCreated"]),
+      subscribe: withFilter(
+        () => pubSub.asyncIterator(["postCreated"]),
+        (payload, variables) => {
+          return variables.user_id
+            ? payload.postCreated.user_id === variables.user_id
+            : true;
+        }
+      ),
     },
     postUpdated: {
       subscribe: () => pubSub.asyncIterator(["postUpdated"]),
@@ -294,6 +303,17 @@ const resolvers = {
         });
         return pubSub.asyncIterator(["postCount"]);
       },
+    },
+
+    commentCreated: {
+      subscribe: withFilter(
+        () => pubSub.asyncIterator(["commentCreated"]),
+        (payload, variables) => {
+          return variables.post_id
+            ? payload.commentCreated.post_id === variables.post_id
+            : true;
+        }
+      ),
     },
   },
 };
