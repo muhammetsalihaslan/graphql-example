@@ -1,15 +1,16 @@
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@apollo/server/express4";
-import { users, posts, comments } from "./data.js";
-import { nanoid } from "nanoid";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
 import express from "express";
-import { createServer } from "http";
 import bodyParser from "body-parser";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import { PubSub, withFilter } from "graphql-subscriptions";
+import { createServer } from "http";
+import { users, posts, comments } from "./data.js";
+import { nanoid } from "nanoid";
+import cors from "cors";
 
 const typeDefs = `#graphql
  type User{
@@ -18,17 +19,14 @@ const typeDefs = `#graphql
     age:Int!
     posts:[Post!]
  }
-
  input CreateUserInput {
   fullname:String!
   age:Int!
  }
-
  input UpdateUserInput {
     fullname:String!
     age:Int!
  }
-
  type Post {
     id:ID!
     title:String!
@@ -36,39 +34,31 @@ const typeDefs = `#graphql
     users:User!
     comments:[Comment!]!
  }
-
  input CreatePostInput {
   title:String!
   user_id:ID!
  }
-
  input UpdatePostInput {
   title:String
   user_id:ID
  }
-
  type Comment {
     id:ID!
     text:String!
     post:Post!
     user:User!
-
  }
-
  input CreateCommentInput {
   text:String!, 
   post_id:ID!, 
   user_id:ID!
  }
-
  input UpdateCommentInput {
   text:String
  }
-
  type DeleteAllOutput{
   count:Int!
  }
-
  type Query{
     users:[User!]!
     user(id:ID!):User!
@@ -77,7 +67,6 @@ const typeDefs = `#graphql
     comments:[Comment!]!
     comment(id:ID!):Comment!
  }
-
  type Mutation{
   #user
   createUser(data:CreateUserInput!):User!  
@@ -88,27 +77,20 @@ const typeDefs = `#graphql
   createPost(data:CreatePostInput!):Post!
   updatePost(id:ID!, data:UpdatePostInput! ):Post!
   deletePost(id:ID!): Post! 
-
   #Comment
   createComment(data:CreateCommentInput!):Comment!
   updateComment(id:ID!, data:UpdateCommentInput! ):Comment!
  }
-
  type Subscription{
    userCreated: User!
    userUpdated: User!
    userDeleted: User!
-
-
    postCreated(user_id:ID): Post
    postUpdated: Post!
    postDeleted: Post!
    postCount:Int!
-
    commentCreated(post_id:ID): Comment!
  }
-
-
 `;
 
 const pubSub = new PubSub();
@@ -118,6 +100,53 @@ const mockLongLastingOperation = (user) => {
 };
 
 const resolvers = {
+  Subscription: {
+    userCreated: {
+      subscribe: () => pubSub.asyncIterator(["userCreated"]),
+    },
+    userUpdated: {
+      subscribe: () => pubSub.asyncIterator(["userUpdated"]),
+    },
+    userDeleted: {
+      subscribe: () => pubSub.asyncIterator(["userDeleted"]),
+    },
+
+    postCreated: {
+      subscribe: withFilter(
+        () => pubSub.asyncIterator(["postCreated"]),
+        (payload, variables) => {
+          return variables.user_id
+            ? payload.postCreated.user_id === variables.user_id
+            : true;
+        }
+      ),
+    },
+    postUpdated: {
+      subscribe: () => pubSub.asyncIterator(["postUpdated"]),
+    },
+    postDeleted: {
+      subscribe: () => pubSub.asyncIterator(["postDeleted"]),
+    },
+    postCount: {
+      subscribe: () => {
+        setTimeout(() => {
+          pubSub.publish("postCount", { postCount: posts.length });
+        });
+        return pubSub.asyncIterator(["postCount"]);
+      },
+    },
+
+    commentCreated: {
+      subscribe: withFilter(
+        () => pubSub.asyncIterator(["commentCreated"]),
+        (payload, variables) => {
+          return variables.post_id
+            ? payload.commentCreated.post_id === variables.post_id
+            : true;
+        }
+      ),
+    },
+  },
   Mutation: {
     //USER
     createUser: (_, { data }) => {
@@ -269,53 +298,6 @@ const resolvers = {
     post: (parent) => posts.find((post) => post.id === parent.post_id),
     user: (parent) => users.find((user) => user.id === parent.user_id),
   },
-  Subscription: {
-    userCreated: {
-      subscribe: () => pubSub.asyncIterator(["userCreated"]),
-    },
-    userUpdated: {
-      subscribe: () => pubSub.asyncIterator(["userUpdated"]),
-    },
-    userDeleted: {
-      subscribe: () => pubSub.asyncIterator(["userDeleted"]),
-    },
-
-    postCreated: {
-      subscribe: withFilter(
-        () => pubSub.asyncIterator(["postCreated"]),
-        (payload, variables) => {
-          return variables.user_id
-            ? payload.postCreated.user_id === variables.user_id
-            : true;
-        }
-      ),
-    },
-    postUpdated: {
-      subscribe: () => pubSub.asyncIterator(["postUpdated"]),
-    },
-    postDeleted: {
-      subscribe: () => pubSub.asyncIterator(["postDeleted"]),
-    },
-    postCount: {
-      subscribe: () => {
-        setTimeout(() => {
-          pubSub.publish("postCount", { postCount: posts.length });
-        });
-        return pubSub.asyncIterator(["postCount"]);
-      },
-    },
-
-    commentCreated: {
-      subscribe: withFilter(
-        () => pubSub.asyncIterator(["commentCreated"]),
-        (payload, variables) => {
-          return variables.post_id
-            ? payload.commentCreated.post_id === variables.post_id
-            : true;
-        }
-      ),
-    },
-  },
 };
 
 const schema = makeExecutableSchema({ typeDefs, resolvers });
@@ -327,7 +309,7 @@ const wsServer = new WebSocketServer({
   path: "/graphql",
 });
 
-const wsServerCleanup = useServer({ schema }, wsServer);
+const ServerCleanup = useServer({ schema }, wsServer);
 
 const server = new ApolloServer({
   schema,
@@ -337,7 +319,7 @@ const server = new ApolloServer({
       async serverWillStart() {
         return {
           async drainServer() {
-            await wsServerCleanup.dispose();
+            await ServerCleanup.dispose();
           },
         };
       },
@@ -347,13 +329,9 @@ const server = new ApolloServer({
 
 await server.start();
 
-app.use("/graphql", bodyParser.json(), expressMiddleware(server));
+app.use("/graphql", cors(), bodyParser.json(), expressMiddleware(server));
 
-const port = 2000;
-
-httpServer.listen(port, () => {
-  console.log(`🚀 Query endpoint ready at http://localhost:${port}/graphql`);
-  console.log(
-    `🚀 Subscription endpoint ready at ws://localhost:${port}/graphql`
-  );
+const PORT = 2000;
+httpServer.listen(PORT, () => {
+  console.log(`Server is now running on http://localhost:${PORT}/graphql`);
 });
