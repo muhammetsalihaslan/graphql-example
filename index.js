@@ -95,17 +95,13 @@ const typeDefs = `#graphql
 
 const pubSub = new PubSub();
 
-const mockLongLastingOperation = (user) => {
-  pubSub.publish("userCreated", { userCreated: { user } });
-};
-
 const resolvers = {
   Subscription: {
     userCreated: {
       subscribe: () => pubSub.asyncIterator(["userCreated"]),
     },
     userUpdated: {
-      subscribe: () => pubSub.asyncIterator(["userUpdated"]),
+      subscribe: () => pubSub.asyncIterator("userUpdated"),
     },
     userDeleted: {
       subscribe: () => pubSub.asyncIterator(["userDeleted"]),
@@ -155,7 +151,7 @@ const resolvers = {
         ...data, //  fullname: data.fullName,  bu şekilde yazmanın farklı yolu ...data şeklinde yazmaktır
       };
       users.push(user);
-      mockLongLastingOperation(user);
+      pubSub.publish("userCreated", { userCreated: user });
       return user;
     },
 
@@ -173,7 +169,7 @@ const resolvers = {
         ...users[user_index],
         ...data,
       });
-      pubSub.publish("userUpdated", { userUpdated: { updated_user } });
+      pubSub.publish("userUpdated", { userUpdated: updated_user });
 
       return updated_user;
     },
@@ -186,7 +182,7 @@ const resolvers = {
       }
       const delete_user = users[delete_index];
       users.splice(delete_index, 1);
-      pubSub.publish("userDeleted", { userDeleted: { delete_user } });
+      pubSub.publish("userDeleted", { userDeleted: delete_user });
 
       return delete_user;
     },
@@ -207,7 +203,7 @@ const resolvers = {
         user_id: data.user_id,
       };
       posts.push(post);
-      pubSub.publish("postCreated", { postCreated: { post } });
+      pubSub.publish("postCreated", { postCreated: post });
       pubSub.publish("postCount", { postCount: posts.length });
       return post;
     },
@@ -232,7 +228,7 @@ const resolvers = {
 
       const deleted_post = posts[post_index];
       posts.splice(post_index, 1);
-      pubSub.publish("postDeleted", { postDeleted: { deleted_post } });
+      pubSub.publish("postDeleted", { postDeleted: deleted_post });
       return deleted_post;
     },
 
