@@ -5,7 +5,7 @@ import Post from "./Post";
 import Subscription from "./Subscription";
 import User from "./User";
 
-export const Resolvers = {
+const Resolvers = {
   Subscription: Subscription,
   Mutation: Mutation,
   Query: Query,
@@ -13,3 +13,5 @@ export const Resolvers = {
   Post: Post,
   Comment: Comment,
 };
+
+export default Resolvers;

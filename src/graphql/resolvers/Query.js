@@ -1,4 +1,4 @@
-import { users, posts, comments } from "./data.js";
+import { users, posts, comments } from "../../data.js";
 
 export const Query = {
   //! users

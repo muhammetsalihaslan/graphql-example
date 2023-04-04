@@ -1,4 +1,4 @@
-import { users, posts } from "./data.js";
+import { users, posts } from "../../data.js";
 
 export const Comment = {
   post: (parent) => posts.find((post) => post.id === parent.post_id),
